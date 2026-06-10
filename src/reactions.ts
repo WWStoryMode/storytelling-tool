@@ -80,8 +80,6 @@ const handleReaction = async (event, botUserId) => {
     return removeRole(roomId, roleId);
   }
 
-  //reaction not recognised
-  return "🤖Example Tool🤖: Sorry, I don't know that reaction."
 };
 
 export default handleReaction;
