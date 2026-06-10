@@ -26,6 +26,8 @@ function generateRegistrationFile() {
   fs.writeFileSync(`./${moduleRegistration.id}.json`, JSON.stringify(moduleRegistration));
 }
 
+let server;
+
 async function start() {
 
   const app = express();
@@ -79,8 +81,16 @@ async function start() {
     res.send({ success: true });
   })
 
-  app.listen(port);
+  server = app.listen(port);
 };
 
 generateRegistrationFile();
 start();
+
+process.on('SIGINT', function () {
+  if (server)
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
+})
