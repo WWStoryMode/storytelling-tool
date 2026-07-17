@@ -13,7 +13,7 @@ const moduleRegistration = {
   uuid: uuidv4(),
   url: `http://localhost:${port}`,
   emoji: "👍",
-  wake_word: "example",
+  introduction: "Send 'example' to start the tool",
   title: "Example App",
   description: "This module manages a list of roles",
   event_types: [
