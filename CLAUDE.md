@@ -23,3 +23,8 @@ Use Node 20 (`nvm use`, see `.nvmrc`); the system Node 14 is too old.
 
 - `POST /` receives `{ event, botUserId }` and replies `{ success: true, response }`, where `response` is one `{ message, context? }` or an array of them.
 - For reactions and replies, the hub attaches the target message as `event.prevEvent`, including the `context` the tool sent with it (see `src/reactions.ts`). Check `prevEvent.sender === botUserId` before trusting it.
+- Votes are matched to a beat by `prevEvent.content.context.beatId`, never by Matrix event IDs.
+- The hub sends array responses in no fixed order. Post a vote result and the next beat as one message.
+- Timer posts go through `POST {HUB_URL}/api/send?roomId=…&toolId=storytelling&secret=…` with body `{ event: { type: "m.room.message", msgtype: "m.text", body, context } }`. The `{ message }` form drops the context.
+- The hub never forwards the bot's own messages, and `/api/send` returns no event ID.
+- Full findings with source references are in `NOTES.md`.
