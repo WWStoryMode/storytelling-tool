@@ -128,3 +128,10 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# storytelling-tool
+.env
+storytelling.json
+data/
+events.jsonl
+web/dist/

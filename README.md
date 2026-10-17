@@ -1,14 +1,16 @@
-# Example Chathackers Module
+# storytelling-tool
 
-Example module for Chathackers Matrix chat integration tools.
-
-This app keeps track of roles within a group chat. It has a keyword that the app responds to ("example") and then the rest of the interface is put together from emoji reactions and replies.
+A Chat Hackers tool that lets a WhatsApp or Signal group play a short branching story together, deciding each turn by voting with emoji reactions. Stories are written in [Ink](https://www.inklestudios.com/ink/) and run with `inkjs`. Forked from [example-tool](https://github.com/Chat-Hackers/example-tool). See `SPEC.md` for the design.
 
 ## Getting started
 
-1. Clone the repo
-1. Run the command `npm install`
-1. Run the command `npm run dev`
-1. Copy the `example.json` file and paste into the `registrations` folder of [the wrapper project](https://github.com/King-Mob/chathackers-wrapper)
-1. Ask your testing buddy to send "example" to the WhatsApp group
-1. Marvel in delight at your newfound power
+1. Use Node 20: `nvm use`
+1. `npm install`
+1. Copy `.env.example` to `.env` and set `PUBLIC_URL` to your ngrok URL and `HUB_SECRET`
+1. `npm run dev` (this writes the registration file `storytelling.json`)
+1. Paste the registration JSON into the hack day document's registration tab for the organiser to load
+1. React 📖 to the tool's introduction in the group, then send `story start`
+
+## Tests
+
+`npm test`

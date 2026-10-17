@@ -6,19 +6,27 @@ import handleMessage, { assignRole } from "./messages";
 import handleReaction, { removeRole } from "./reactions";
 import { getPseudoState } from "./pseudoState";
 
-const port = 5049;
+try {
+  process.loadEnvFile();
+} catch {
+  // no .env file; rely on the real environment
+}
+
+const port = Number(process.env.PORT) || 5049;
 
 const moduleRegistration = {
-  id: "example",
+  id: "storytelling",
   uuid: uuidv4(),
-  url: `http://localhost:${port}`,
-  emoji: "👍",
-  introduction: "Send 'example' to start the tool",
-  title: "Example App",
-  description: "This module manages a list of roles",
+  url: process.env.PUBLIC_URL || `http://localhost:${port}`, // ngrok URL, never localhost, when registering with the hub
+  emoji: "📖",
+  introduction: "React 📖 to play stories together. Send 'story start' to begin, then vote on each choice by reacting 1️⃣ 2️⃣ 3️⃣. The most votes decides what happens next. 'story help' lists commands.",
+  title: "Storytelling",
+  description: "Branching stories the whole group plays by voting with reactions",
+  secret: process.env.HUB_SECRET,
   event_types: [
     "m.room.message",
-    "m.reaction"
+    "m.reaction",
+    "m.room.redaction"
   ]
 }
 

@@ -1,1 +1,0 @@
-{"id":"example","uuid":"1e1a970b-e427-445f-ae12-a61f5e0ad052","url":"http://localhost:5049","emoji":"👍","wake_word":"example","title":"Example App","description":"This module manages a list of roles","event_types":["m.room.message","m.reaction"]}

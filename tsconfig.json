@@ -1,5 +1,5 @@
 {
-    "exclude": ["./web", "./dist-web"],
+    "exclude": ["./web", "./dist-web", "./tests", "./vitest.config.ts"],
     "compilerOptions": {
         "target": "ES2016",
         "outDir": "./dist",
