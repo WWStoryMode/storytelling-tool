@@ -4,7 +4,7 @@ Oct 17, 2026 · @William
 
 ## Overview
 
-storytelling-tool (shown in the chat as Storytelling) lets a WhatsApp or Signal group play a short branching story together, deciding each turn by voting with emoji reactions. It is a Chat Hackers tool: an HTTP server registered with the Tool Hub, activated by reacting to its introduction, with a React dashboard on `GET /`.
+storytelling-tool (shown in the chat as Storytelling) lets a WhatsApp or Signal group play a short branching story together, deciding each turn by voting with emoji reactions. It is a Chat Hackers tool: an HTTP server registered with the Tool Hub, activated in a group by sending ⚙️ and reacting ❤️ to its line in the hub's tool list, with a React dashboard on `GET /`.
 
 The bot posts a story beat with two to four numbered choices. Members react with 1️⃣ 2️⃣ 3️⃣ to vote, the vote closes on a quorum or a timer, and the bot posts the next beat. A full story runs three to six decisions and ends with a recap of the path the group took.
 
@@ -259,7 +259,7 @@ const moduleRegistration = {
   url: process.env.PUBLIC_URL, // ngrok URL, never localhost
   emoji: "📖",
   title: "Storytelling",
-  introduction: "React 📖 to play stories together. Send 'story start' to begin, then vote on each choice by reacting 1️⃣ 2️⃣ 3️⃣. The most votes decides what happens next. 'story help' lists commands.",
+  introduction: "Send 'story start' to play a story together, then vote on each choice by reacting 1️⃣ 2️⃣ 3️⃣. The most votes decides what happens next. 'story help' lists commands.",
   description: "Branching stories the whole group plays by voting with reactions",
   secret: process.env.HUB_SECRET,
   event_types: ["m.room.message", "m.reaction", "m.room.redaction"],
