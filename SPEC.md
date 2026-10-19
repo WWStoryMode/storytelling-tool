@@ -276,7 +276,7 @@ The `introduction` is most of the user experience, so it names the three things 
 | `GET /` | Serves the dashboard, built into one `index.html` with Vite single-file |
 | `GET /api/stories` | Lists stories in the library |
 | `POST /api/stories` | Uploads and validates an `.ink` or `.json` story |
-| `GET /api/sessions` | Live state of every room's session, for the dashboard |
+| `GET /api/sessions?roomId=…` | `{ now, session }`: the room's session for the dashboard (counts only, never names) and the server's clock |
 
 ### Commands
 

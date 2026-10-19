@@ -1,13 +1,11 @@
-import express from "express";
 import * as fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
+import { createApp } from "./app";
 import { configProblems } from "./config";
-import { forLog, appendEvent } from "./eventLog";
 import { Game, type Post } from "./game";
 import { createHubPoster } from "./hub";
 import { loadStoryDir } from "./library";
-import { sessionView } from "./voting";
 
 try {
   process.loadEnvFile();
@@ -66,61 +64,12 @@ if (eventLog)
 
 let server;
 
-async function start() {
-
-  const app = express();
-  app.use(express.json());
-
-  app.get("/", async (req, res) => {
-    const htmlPath = path.resolve(__dirname, "../../web/dist/index.html")
-
-    res.sendFile(htmlPath);
-  })
-
-  app.post("/", async (req, res) => {
-    const { event, botUserId } = req.body ?? {};
-    if (!event) {
-      res.send({ success: true });
-      return;
-    }
-
-    try {
-      const logged = eventLog ? forLog(event, botUserId) : null;
-      if (eventLog && logged)
-        appendEvent(eventLog, { receivedAt: Date.now(), botUserId, event: logged });
-
-      const messages = game.handle(event, botUserId);
-      // Logs the event type only: chat content and senders stay out of the logs
-      console.log(`${event.type} in ${event.room_id}: ${messages.length} message(s)`);
-
-      if (messages.length === 0)
-        res.send({ success: true });
-      else
-        res.send({ success: true, response: messages.length === 1 ? messages[0] : messages });
-    } catch (err) {
-      console.error(`Couldn't handle ${event.type} in ${event.room_id}:`, err);
-      res.send({ success: true });
-    }
-  });
-
-  app.get("/api/stories", async (req, res) => {
-    res.send(game.stories.map(({ json, ...story }) => story));
-  })
-
-  // The dashboard is opened per room through the hub, as /storytelling?roomId=…
-  app.get("/api/sessions", async (req, res) => {
-    const { roomId } = req.query;
-    if (typeof roomId !== "string") {
-      res.status(400).send({ success: false, message: "roomId is required" });
-      return;
-    }
-
-    const session = game.session(roomId);
-    res.json(session ? sessionView(session) : null);
-  })
+function start() {
+  const app = createApp({ game, eventLog, dashboardHtml: path.resolve(__dirname, "../../web/dist/index.html") });
 
   server = app.listen(port);
   console.log(`Listening on port ${port}`);
+  console.log(`Dashboard: http://localhost:${port}/?roomId=<room>, or through the hub's dashboard`);
 };
 
 generateRegistrationFile();

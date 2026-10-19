@@ -8,9 +8,9 @@ Use Node 20 (`nvm use`, see `.nvmrc`); the system Node 14 is too old.
 
 - `npm install`
 - `npm test`: Vitest, run once (`npm run test:watch` to watch)
-- `npm run dev`: compile with tsc and start the server on `PORT` (default 5049); writes `storytelling.json`, the registration file
-- `npm run dev-web` / `npm run build-web`: dashboard dev server / single-file build into `web/dist/index.html`, served on `GET /`
-- `npm run sim`: a pretend group chat in the terminal (`priya: story start`, `sam: 2`, `/wait 3`, `/skip`, `/state`), no hub needed
+- `npm run dev`: compile with tsc, build the dashboard, and start the server on `PORT` (default 5049); writes `storytelling.json`, the registration file
+- `npm run dev-web` / `npm run build-web`: dashboard dev server / single-file build into `web/dist/index.html`, served on `GET /`. Open it as `/?roomId=<room>`; through the hub it is `{hub}/storytelling?roomId=…`. Pure helpers are in `web/view.ts`
+- `npm run sim`: a pretend group chat in the terminal (`priya: story start`, `sam: 2`, `/wait 3`, `/skip`, `/state`), no hub needed. `npm run sim -- --server` sends the events to a running `npm run dev` instead, so its dashboard at `http://localhost:5049/?roomId=!sim:local` follows along
 - `npm run check-story -- <file>` / `npm run play-story -- <file>`: validate / play an Ink story in the terminal; the writer's guide is `stories/README.md`
 - `npm run replay -- events.jsonl`: plays a recording back through the game, showing each reaction's codepoints; record one by setting `EVENT_LOG=events.jsonl`
 - Copy `.env.example` to `.env` for `PUBLIC_URL` (ngrok), `HUB_SECRET` and `HUB_URL`; the server warns at startup about any that are missing

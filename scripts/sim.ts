@@ -7,6 +7,9 @@
 //   /wait 3                  move the clock 3 minutes forward, firing any timers
 //   /skip                    jump to the next timer and fire it
 //   /state                   what the dashboard would see
+//
+// npm run sim -- --server [url] sends the events to a running server instead (default http://localhost:5049),
+// so its dashboard at /?roomId=!sim:local follows along. The server's real clock runs the timers there.
 import path from "path";
 import * as readline from "readline";
 import { Game } from "../src/game";
@@ -18,6 +21,9 @@ const BOT = "@storytelling:sim";
 const ROOM = "!sim:local";
 
 type Posted = ChatMessage & { number: number };
+
+const serverFlag = process.argv.indexOf("--server");
+const server = serverFlag === -1 ? null : process.argv[serverFlag + 1] ?? "http://localhost:5049";
 
 const clock = new VirtualClock();
 const posted: Posted[] = [];
@@ -41,11 +47,24 @@ rejected.forEach(({ file, problems }) => console.log(`Skipped stories/${file}: $
 
 const game = new Game(stories, { clock, post: (_roomId, messages) => print(messages, " (timer)") });
 
+// In-process, or through a running server's POST / as the hub would send it
+async function handle(event: ChatEvent): Promise<ChatMessage[]> {
+    if (!server) return game.handle(event, BOT);
+
+    const reply = await fetch(server, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event, botUserId: BOT }),
+    });
+    const { response } = await reply.json();
+    return response === undefined ? [] : Array.isArray(response) ? response : [response];
+}
+
 function asEvent(sender: string, type: string, content: Record<string, any>, extra: Partial<ChatEvent> = {}): ChatEvent {
     return { type, event_id: `$sim${++nextId}`, sender, room_id: ROOM, origin_server_ts: clock.now(), content, ...extra };
 }
 
-function react(sender: string, key: string, number: number | null) {
+async function react(sender: string, key: string, number: number | null) {
     const target = number === null
         ? [...posted].reverse().find(message => message.context)
         : posted.find(message => message.number === number);
@@ -58,21 +77,31 @@ function react(sender: string, key: string, number: number | null) {
     const prevEvent = asEvent(BOT, "m.room.message", { msgtype: "m.text", body: target.message, context: target.context, moduleEvent: true });
     const event = asEvent(sender, "m.reaction", { "m.relates_to": { rel_type: "m.annotation", event_id: prevEvent.event_id, key } }, { prevEvent });
     lastReaction.set(sender, event.event_id);
-    print(game.handle(event, BOT), "");
+    print(await handle(event), "");
 }
 
-function unreact(sender: string) {
+async function unreact(sender: string) {
     const redacts = lastReaction.get(sender);
     if (!redacts) {
         console.log("  (no reaction to remove)");
         return;
     }
     lastReaction.delete(sender);
-    print(game.handle(asEvent(sender, "m.room.redaction", { redacts }, { redacts }), BOT), "");
+    print(await handle(asEvent(sender, "m.room.redaction", { redacts }, { redacts })), "");
 }
 
-function run(line: string) {
+async function run(line: string) {
     const [command, argument] = line.split(/\s+/);
+
+    if (server && (command === "/wait" || command === "/skip")) {
+        console.log("  (the server's own clock runs the timers: start with \"minutes 1\" and watch its terminal for timer messages)");
+        return;
+    }
+    if (server && command === "/state") {
+        const reply = await fetch(`${server.replace(/\/+$/, "")}/api/sessions?roomId=${encodeURIComponent(ROOM)}`);
+        console.log(JSON.stringify((await reply.json()).session, null, 2));
+        return;
+    }
 
     if (command === "/wait") {
         clock.advance(Number(argument || 1) * 60_000);
@@ -102,19 +131,27 @@ function run(line: string) {
     const reaction = text.match(/^(\S+)(?:\s+#(\d+))?$/);
     if (reaction && (/^\d$/.test(reaction[1]) || /^\p{Extended_Pictographic}|⃣/u.test(reaction[1]))) {
         const key = /^\d$/.test(reaction[1]) ? `${reaction[1]}️⃣` : reaction[1];
-        react(sender, key, reaction[2] ? Number(reaction[2]) : null);
+        await react(sender, key, reaction[2] ? Number(reaction[2]) : null);
     } else if (text === "-") {
-        unreact(sender);
+        await unreact(sender);
     } else {
-        print(game.handle(asEvent(sender, "m.room.message", { msgtype: "m.text", body: text }), BOT), "");
+        print(await handle(asEvent(sender, "m.room.message", { msgtype: "m.text", body: text })), "");
     }
 }
 
 async function main() {
     console.log("Storytelling simulator. Try \"priya: story start\", then \"sam: 2\". /wait 3 moves the clock; /skip jumps to the next timer.");
+    if (server)
+        console.log(`Sending events to ${server}. Dashboard: ${server.replace(/\/+$/, "")}/?roomId=${encodeURIComponent(ROOM)}`);
     process.stdout.write("> ");
     for await (const line of readline.createInterface({ input: process.stdin })) {
-        if (line.trim()) run(line.trim());
+        if (line.trim()) {
+            try {
+                await run(line.trim());
+            } catch (err) {
+                console.log(`  (couldn't reach ${server}: ${(err as Error).message})`);
+            }
+        }
         process.stdout.write("> ");
     }
     process.exit(0);

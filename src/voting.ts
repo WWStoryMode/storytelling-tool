@@ -322,6 +322,8 @@ export function statusMessage(session: Session, now: number): ChatMessage {
 }
 
 // What the dashboard may show: counts and progress, never who voted
+export type SessionView = ReturnType<typeof sessionView>;
+
 export function sessionView(session: Session) {
     return {
         storyId: session.storyId,

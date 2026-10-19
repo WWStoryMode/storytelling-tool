@@ -5,7 +5,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "build": "npx tsc",
+    "build": "npx tsc && vite build web",
     "start": "node dist/src/index.js",
     "dev": "npm run build && npm start",
     "dev-web": "vite web",
@@ -22,7 +22,6 @@
     "inkjs": "^2.4.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-router": "^7.8.2",
     "typescript": "^5.6.2",
     "uuid": "^11.0.5",
     "vite-plugin-singlefile": "^2.3.0"
