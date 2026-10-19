@@ -9,7 +9,9 @@
     "start": "node dist/src/index.js",
     "dev": "npm run build && npm start",
     "dev-web": "vite web",
-    "build-web": "vite build web"
+    "build-web": "vite build web",
+    "check-story": "tsx scripts/check-story.ts",
+    "play-story": "tsx scripts/play-story.ts"
   },
   "author": "William Wong",
   "license": "ISC",
