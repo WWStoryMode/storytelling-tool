@@ -11,7 +11,8 @@
     "dev-web": "vite web",
     "build-web": "vite build web",
     "check-story": "tsx scripts/check-story.ts",
-    "play-story": "tsx scripts/play-story.ts"
+    "play-story": "tsx scripts/play-story.ts",
+    "sim": "tsx scripts/sim.ts"
   },
   "author": "William Wong",
   "license": "ISC",

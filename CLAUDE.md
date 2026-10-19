@@ -10,6 +10,7 @@ Use Node 20 (`nvm use`, see `.nvmrc`); the system Node 14 is too old.
 - `npm test`: Vitest, run once (`npm run test:watch` to watch)
 - `npm run dev`: compile with tsc and start the server on `PORT` (default 5049); writes `storytelling.json`, the registration file
 - `npm run dev-web` / `npm run build-web`: dashboard dev server / single-file build into `web/dist/index.html`, served on `GET /`
+- `npm run sim`: a pretend group chat in the terminal (`priya: story start`, `sam: 2`, `/wait 3`, `/skip`, `/state`), no hub needed
 - `npm run check-story -- <file>` / `npm run play-story -- <file>`: validate / play an Ink story in the terminal; the writer's guide is `stories/README.md`
 - Copy `.env.example` to `.env` for `PUBLIC_URL` (ngrok) and `HUB_SECRET`
 

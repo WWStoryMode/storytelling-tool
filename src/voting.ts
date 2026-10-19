@@ -1,5 +1,5 @@
 import { Beat, StoryRun } from "./engine";
-import { formatBeat, formatEnding, formatNudge, formatResult, formatTitle } from "./format";
+import { formatBeat, formatEndedEarly, formatEnding, formatNudge, formatResult, formatStatusLead, formatTitle } from "./format";
 
 // Voting for one room's session. Pure: time, randomness and the story come in as arguments,
 // and every function returns a new session plus the messages to post.
@@ -233,4 +233,59 @@ export function handleTimer(session: Session, env: Env): Result {
     }
 
     return close(session, env);
+}
+
+// `story end`: stops a running story with a recap of the path so far
+export function endSession(session: Session, env: Pick<Env, "storyJson">): Result {
+    if (session.status === "ended")
+        return { session, messages: [] };
+
+    const scores = StoryRun.resume(env.storyJson, session.inkState).variables();
+    const ended: Session = { ...session, status: "ended", closesAt: null, votes: {}, choices: [], scores, ending: null };
+    const message = formatEndedEarly({
+        endingTitle: null,
+        path: ended.path,
+        scores,
+        voterCount: ended.voters.length,
+        storyId: ended.storyId,
+    });
+
+    return { session: ended, messages: [{ message }] };
+}
+
+// `story status`: the current beat again, with the votes so far. It carries the beat's context, so votes on it count.
+export function statusMessage(session: Session, now: number): ChatMessage {
+    const paused = session.status === "paused" || session.closesAt === null;
+    const windowMs = paused ? WINDOW_MS[session.mode] : Math.max(0, (session.closesAt as number) - now);
+    const message = formatBeat({
+        lead: formatStatusLead(Object.keys(session.votes).length, paused),
+        text: session.beatText,
+        choices: session.choices,
+        counts: tally(session),
+        quorum: session.quorum,
+        windowMs,
+    });
+
+    return { message, context: { tool: TOOL_ID, beatId: session.beatId } };
+}
+
+// What the dashboard may show: counts and progress, never who voted
+export function sessionView(session: Session) {
+    return {
+        storyId: session.storyId,
+        title: session.title,
+        mode: session.mode,
+        quorum: session.quorum,
+        status: session.status,
+        beatNumber: session.beatNumber,
+        beatText: session.beatText,
+        choices: session.choices,
+        tally: tally(session),
+        votesIn: Object.keys(session.votes).length,
+        closesAt: session.closesAt,
+        path: session.path,
+        voterCount: session.voters.length,
+        ending: session.ending,
+        scores: session.scores,
+    };
 }

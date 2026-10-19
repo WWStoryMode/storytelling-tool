@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as fs from "fs";
 import path from "path";
 import { compileInk } from "../src/validate";
-import { handleEvent, handleTimer, startSession, tally, WINDOW_MS, type ChatEvent, type Session } from "../src/voting";
+import { endSession, handleEvent, handleTimer, sessionView, startSession, statusMessage, tally, WINDOW_MS, type ChatEvent, type Session } from "../src/voting";
 
 const json = compileInk(fs.readFileSync(path.resolve(__dirname, "../stories/the-stray.ink"), "utf8")).json as string;
 
@@ -369,5 +369,74 @@ describe("slow mode", () => {
         expect(result.messages).toHaveLength(1);
         expect(result.session.beatId).toBe("s1:2");
         expect(result.session.quorum).toBe(2);
+    });
+});
+
+describe("endSession", () => {
+    it("stops a running story with a recap of the path so far", () => {
+        const { session } = voteAll(begin().session, [["@priya", "3️⃣"], ["@sam", "3️⃣"], ["@jo", "1️⃣"]]);
+        const { session: ended, messages } = endSession(session, env());
+
+        expect(messages).toEqual([{ message: [
+            "Story ended early.",
+            "",
+            "THE END",
+            "Your path: After the old man with the umbrella",
+            "Boldness 0 · Trust 2",
+            "3 people voted across 1 decision. Play again with: story start the-stray",
+        ].join("\n") }]);
+        expect(ended).toMatchObject({ status: "ended", closesAt: null, votes: {}, choices: [], scores: { boldness: 0, trust: 2 }, ending: null });
+    });
+
+    it("leaves a story that has already ended alone", () => {
+        const { session } = endSession(begin().session, env());
+        unchanged(endSession(session, env()), session);
+    });
+});
+
+describe("statusMessage", () => {
+    it("reposts the beat with the votes so far, the time left and the same beat context", () => {
+        const { session } = voteAll(begin().session, [["@priya", "2️⃣"], ["@sam", "1️⃣"]]);
+        const { message, context } = statusMessage(session, T0 + 150_000);
+
+        expect(message.startsWith("2 votes so far.\nRain hits the city")).toBe(true);
+        expect(message).toContain("1️⃣ Under the bakery's back awning (1)\n2️⃣ Up the fire escape to the roofs (1)\n3️⃣ After the old man with the umbrella (0)");
+        expect(message.endsWith("React to vote. Closes at 3 votes or in 1 minute.")).toBe(true);
+        expect(context).toEqual({ tool: "storytelling", beatId: "s1:1" });
+    });
+
+    it("says when the story is paused, with the window a new vote would open", () => {
+        const paused = handleTimer(begin().session, env(T0 + LIVE)).session;
+        const { message } = statusMessage(paused, T0 + 2 * LIVE);
+
+        expect(message.startsWith("The story is paused until someone votes.\n")).toBe(true);
+        expect(message.endsWith("React to vote. Closes at 3 votes or in 3 minutes.")).toBe(true);
+    });
+
+    it("says under a minute when less than a minute is left", () => {
+        const { message } = statusMessage(begin().session, T0 + LIVE - 20_000);
+        expect(message.endsWith("in under a minute.")).toBe(true);
+    });
+});
+
+describe("sessionView", () => {
+    it("gives the dashboard counts and progress, never who voted", () => {
+        const { session } = voteAll(begin().session, [["@priya", "2️⃣"], ["@sam", "2️⃣"]]);
+        const view = sessionView(session);
+
+        expect(view).toMatchObject({
+            storyId: "the-stray",
+            title: "The Stray",
+            status: "voting",
+            quorum: 3,
+            choices: ["Under the bakery's back awning", "Up the fire escape to the roofs", "After the old man with the umbrella"],
+            tally: [0, 2, 0],
+            votesIn: 2,
+            closesAt: T0 + LIVE,
+            path: [],
+            voterCount: 0,
+        });
+        expect(JSON.stringify(view)).not.toMatch(/priya|sam/);
+        expect(view).not.toHaveProperty("inkState");
     });
 });

@@ -2,9 +2,9 @@ import express from "express";
 import * as fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import handleMessage, { assignRole } from "./messages";
-import handleReaction, { removeRole } from "./reactions";
-import { getPseudoState } from "./pseudoState";
+import { Game } from "./game";
+import { loadStoryDir } from "./library";
+import { sessionView } from "./voting";
 
 try {
   process.loadEnvFile();
@@ -34,6 +34,20 @@ function generateRegistrationFile() {
   fs.writeFileSync(`./${moduleRegistration.id}.json`, JSON.stringify(moduleRegistration));
 }
 
+function loadStories() {
+  const { stories, rejected } = loadStoryDir(path.resolve(__dirname, "../../stories"));
+
+  rejected.forEach(({ file, problems }) => console.warn(`Skipped stories/${file}:\n  ${problems.join("\n  ")}`));
+  console.log(`Loaded ${stories.length} stories: ${stories.map(story => story.id).join(", ")}`);
+
+  return stories;
+}
+
+// Timer closes have no incoming event to reply to. Phase 4 posts them through the hub's /api/send; until then they are logged.
+const game = new Game(loadStories(), {
+  post: (roomId, messages) => console.log(`Timer message for ${roomId} (not sent yet):`, messages),
+});
+
 let server;
 
 async function start() {
@@ -48,48 +62,45 @@ async function start() {
   })
 
   app.post("/", async (req, res) => {
-    const { event, botUserId } = req.body;
+    const { event, botUserId } = req.body ?? {};
+    if (!event) {
+      res.send({ success: true });
+      return;
+    }
 
-    console.log(event)
-    let response = {};
+    try {
+      const messages = game.handle(event, botUserId);
+      // Logs the event type only: chat content and senders stay out of the logs
+      console.log(`${event.type} in ${event.room_id}: ${messages.length} message(s)`);
 
-    if (event.type === "m.room.message")
-      response = await handleMessage(event, botUserId);
-
-    if (event.type === "m.reaction")
-      response = await handleReaction(event, botUserId);
-
-    console.log(response)
-
-    res.send({ success: true, response });
+      if (messages.length === 0)
+        res.send({ success: true });
+      else
+        res.send({ success: true, response: messages.length === 1 ? messages[0] : messages });
+    } catch (err) {
+      console.error(`Couldn't handle ${event.type} in ${event.room_id}:`, err);
+      res.send({ success: true });
+    }
   });
 
-  app.get("/api/state", async (req, res) => {
-    const { roomId } = req.query;
-
-    const state = await getPseudoState(roomId as string);
-
-    res.send(state || { assignedRoles: [] });
+  app.get("/api/stories", async (req, res) => {
+    res.send(game.stories.map(({ json, ...story }) => story));
   })
 
-  app.post("/api/role", async (req, res) => {
+  // The dashboard is opened per room through the hub, as /storytelling?roomId=…
+  app.get("/api/sessions", async (req, res) => {
     const { roomId } = req.query;
-    const { personName, roleName } = req.body;
+    if (typeof roomId !== "string") {
+      res.status(400).send({ success: false, message: "roomId is required" });
+      return;
+    }
 
-    await assignRole(personName, roomId as string, roleName);
-
-    res.send({ success: true })
-  })
-
-  app.delete("/api/role", async (req, res) => {
-    const { roomId, roleId } = req.query;
-
-    await removeRole(roomId as string, roleId as string);
-
-    res.send({ success: true });
+    const session = game.session(roomId);
+    res.json(session ? sessionView(session) : null);
   })
 
   server = app.listen(port);
+  console.log(`Listening on port ${port}`);
 };
 
 generateRegistrationFile();

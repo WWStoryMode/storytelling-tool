@@ -8,6 +8,8 @@ function plural(count: number, word: string, many = `${word}s`) {
 
 export function formatDuration(ms: number) {
     const minutes = Math.round(ms / 60_000);
+    if (minutes < 1)
+        return "under a minute";
     if (minutes < 60)
         return plural(minutes, "minute");
 
@@ -31,8 +33,11 @@ function withLead(lead: string | null | undefined, text: string) {
     return [lead, text].filter(Boolean).join("\n");
 }
 
-export function formatBeat(beat: { lead?: string | null; text: string; choices: string[]; quorum: number | null; windowMs: number }) {
-    const choices = beat.choices.map((label, index) => `${NUMBER_EMOJI[index]} ${label}`).join("\n");
+// With counts, each choice shows its votes so far, as in "1️⃣ Left (2)"
+export function formatBeat(beat: { lead?: string | null; text: string; choices: string[]; counts?: number[]; quorum: number | null; windowMs: number }) {
+    const choices = beat.choices
+        .map((label, index) => `${NUMBER_EMOJI[index]} ${label}${beat.counts ? ` (${beat.counts[index]})` : ""}`)
+        .join("\n");
     return [withLead(beat.lead, beat.text), choices, formatFooter(beat.quorum, beat.windowMs)].join("\n\n");
 }
 
@@ -41,6 +46,10 @@ export function formatResult(result: { choice: number; label: string; count: num
     return result.coinFlip
         ? `It was a tie, so the story flipped a coin: ${pick}.`
         : `The group chose ${pick}.`;
+}
+
+export function formatStatusLead(votesIn: number, paused: boolean) {
+    return paused ? "The story is paused until someone votes." : `${plural(votesIn, "vote")} so far.`;
 }
 
 export function formatNudge(windowMs: number) {
@@ -78,4 +87,32 @@ export function formatRecap(recap: Recap) {
 
 export function formatEnding(ending: Recap & { lead?: string | null; text: string }) {
     return [withLead(ending.lead, ending.text), formatRecap(ending)].join("\n\n");
+}
+
+export function formatEndedEarly(recap: Recap) {
+    return ["Story ended early.", formatRecap(recap)].join("\n\n");
+}
+
+export function formatHelp() {
+    return [
+        "Storytelling commands:",
+        "• story start [name] [live or slow] [quorum N]: start a story. It's Live with a quorum of 3 unless you say otherwise",
+        "• story status: show the current choice and the votes so far",
+        "• story end: stop the story and show the path so far",
+        "• story list: list the stories you can play",
+        "• story help: show this message",
+        "",
+        "Vote by reacting 1️⃣ 2️⃣ 3️⃣ 4️⃣ to a story message. Results show how many people voted, never who. This tool only reads story commands and number reactions on its own messages, and keeps nothing else from the chat.",
+    ].join("\n");
+}
+
+export function formatList(stories: { id: string; title: string; decisions: number; endings: string[] }[]) {
+    if (stories.length === 0)
+        return "There are no stories in the library yet.";
+
+    return [
+        "Stories you can play:",
+        ...stories.map(story => `• ${story.id}: ${story.title} (${plural(story.decisions, "decision")}, ${plural(story.endings.length, "ending")})`),
+        "Start one with: story start <name>",
+    ].join("\n");
 }
