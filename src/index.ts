@@ -21,7 +21,7 @@ const moduleRegistration = {
   id: "storytelling",
   uuid: uuidv4(),
   url: process.env.PUBLIC_URL || `http://localhost:${port}`, // ngrok URL, never localhost, when registering with the hub
-  emoji: "📖",
+  emoji: "📜",
   introduction: "Send 'story start' to play a story together, then vote on each choice by reacting 1️⃣ 2️⃣ 3️⃣. The most votes decides what happens next. 'story help' lists commands.",
   title: "Storytelling",
   description: "Branching stories the whole group plays by voting with reactions",

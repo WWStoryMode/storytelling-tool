@@ -46,7 +46,7 @@ Evidence:
 ### 5. Activation and which events reach the tool
 - The tool receives events only from rooms where it is active (`index.ts:155-160`), and only the types in `event_types` (`index.ts:160`).
 - Events from before the hub started are skipped (`index.ts:248`).
-- **Activation is not "react 📖".** A member sends ⚙️, the hub lists its tools, and the member reacts ❤️ to the Storytelling line (🙏 deactivates). It can also be toggled on the hub dashboard (`index.ts:75-139`, `webserver.ts:86-100`). The hub then posts `Turning on Storytelling. <introduction>` (`index.ts:44`). 📖 only appears as the tool's emoji in that list.
+- **Activation is not "react 📖".** A member sends ⚙️, the hub lists its tools, and the member reacts ❤️ to the Storytelling line (🙏 deactivates). It can also be toggled on the hub dashboard (`index.ts:75-139`, `webserver.ts:86-100`). The hub then posts `Turning on Storytelling. <introduction>` (`index.ts:44`). The tool's emoji (📜) only appears in that list.
 - The registration is read from a JSON file in the hub's `registrations/` folder, `secret` included (`index.ts:202-212`). So the organiser needs our `storytelling.json`, and **whoever holds that file has the secret**. Don't paste the secret into the shared hack day document.
 
 ### 6. Redactions (withdrawn votes)

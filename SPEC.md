@@ -257,7 +257,7 @@ const moduleRegistration = {
   id: "storytelling",
   uuid: uuidv4(),
   url: process.env.PUBLIC_URL, // ngrok URL, never localhost
-  emoji: "📖",
+  emoji: "📜",
   title: "Storytelling",
   introduction: "Send 'story start' to play a story together, then vote on each choice by reacting 1️⃣ 2️⃣ 3️⃣. The most votes decides what happens next. 'story help' lists commands.",
   description: "Branching stories the whole group plays by voting with reactions",
@@ -479,7 +479,7 @@ The biggest unknown is whether the tool can learn its own beat's event ID; every
 | What payload does `/api/send` expect? | Read `events-tool` and `tool-hub` source | Close votes only on quorum for the demo |
 | Does the bridge send a redaction when someone changes or removes a reaction? | Change a reaction in the test group and log events | Latest reaction per sender wins; removed votes stand |
 | Do number emoji arrive with the same codepoints from WhatsApp and Signal? | Log `key` from both platforms | Normalise by stripping variation selectors before matching |
-| Does the hub forward reactions only after the tool is activated in a room? | Activate with 📖 in a fresh group and test | Activate before the demo |
+| Does the hub forward reactions only after the tool is activated in a room? | Activate with ⚙️ then ❤️ in a fresh group and test | Activate before the demo |
 | ngrok restarts change the URL | Keep one ngrok session running all day | Update the registration JSON and tell the organiser |
 | Long beats get cut or split by WhatsApp | Post the longest beat in the test group | Trim the beat in the Ink file |
 | Is a game welcome among utility tools? | Ask your table, then the room at the demo | Lead with the cat story as an icebreaker, then pitch scenario rehearsal as the next use |
