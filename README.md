@@ -21,6 +21,8 @@ To watch it without a chat, run `npm run dev` in one terminal and `npm run sim -
 
 See [`stories/README.md`](stories/README.md) for the rules a chat story follows and how to check and play one: `npm run check-story -- <file>` and `npm run play-story -- <file>`.
 
+A group can also add a story from the chat, for itself only, until the server restarts: reply `story add` to a `.ink` file someone sent, or send `story load <raw link>` with a link from GitHub, a gist or Pastebin. Attachments are downloaded through the hub, so they need `HUB_URL` set.
+
 ## Tests
 
 `npm test`

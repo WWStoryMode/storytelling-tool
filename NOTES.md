@@ -60,6 +60,14 @@ Evidence:
 - So the dashboard is opened **per room** at `{hub}/storytelling?roomId=…`. It must call its API relative to the page, as example-tool does (`web/requests.ts:1-2`), giving `{hub}/storytelling/api/sessions?roomId=…`.
 - `GET /api/sessions` should accept `roomId` and return that room's session.
 
+### 8. Attachments (for `story add`)
+Read on 2026-10-19 from `tool-hub` (ed6f045); the route is older than the recon commit.
+- The hub forwards every `m.room.message` to tools that are turned on, whatever its `msgtype`, so an attached file arrives as `msgtype: "m.file"` with an `mxc://` `url`, the file name in `body` (or `filename`, when `body` is a caption) and `info.size` (`index.ts:160`).
+- A reply gets `prevEvent` like a reaction does, from `m.relates_to.m.in_reply_to` (`index.ts:266-268`). Replying `story add` to someone's file attaches that file message.
+- `GET {hub}/api/content?mxcUrl=mxc://…` downloads Matrix media with the hub's login (`webserver.ts:164-182`, `matrixClientRequests.ts:221-235`). It needs no secret. The tool never has a Matrix token of its own.
+- The hub waits for the tool's reply with no timeout (`forwardEvent`, `index.ts:20-36`), so the tool can download and check the file before replying.
+- Still to check live: whether WhatsApp lets members send a `.ink` file as a document, and where the bridge puts the file name and any caption.
+
 ## Consequences for the plan and spec
 
 | Spec item | Change |
@@ -75,5 +83,6 @@ Evidence:
 
 Still to check live in Phase 4:
 - whether the bridge sends redactions for removed or changed reactions
+- how the bridge sends an attached `.ink` file and its caption (§8)
 - the emoji codepoints from WhatsApp and Signal
 - long beats

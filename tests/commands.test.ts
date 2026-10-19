@@ -70,4 +70,26 @@ describe("parseCommand", () => {
     it("points an unknown command at story help", () => {
         expect(parseCommand("story dance")).toEqual({ type: "invalid", message: "I don't know \"story dance\". Send \"story help\" for the commands." });
     });
+
+    it("reads story add, which takes its file from the message or the one it replies to", () => {
+        expect(parseCommand("story add")).toEqual({ type: "add" });
+        expect(parseCommand("Story Add")).toEqual({ type: "add" });
+    });
+
+    it("reads story load with its link, keeping the link's case", () => {
+        expect(parseCommand("story load https://raw.githubusercontent.com/Priya/Stories/main/The-Lantern.ink"))
+            .toEqual({ type: "load", url: "https://raw.githubusercontent.com/Priya/Stories/main/The-Lantern.ink" });
+        expect(parseCommand("STORY LOAD https://gist.githubusercontent.com/a/b/raw/x.ink")).toMatchObject({ type: "load" });
+    });
+
+    it("asks for a link when story load has none", () => {
+        const command = parseCommand("story load");
+        expect(command?.type).toBe("invalid");
+        expect(command && "message" in command && command.message).toContain("raw");
+    });
+
+    it("reads a command under a quoted reply, as some bridges send replies", () => {
+        expect(parseCommand("> <@sam:hub> lantern.ink\n\nstory add")).toEqual({ type: "add" });
+        expect(parseCommand("> <@sam:hub> hello\n\nsee you later")).toBeNull();
+    });
 });

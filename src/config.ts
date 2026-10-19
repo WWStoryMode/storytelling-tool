@@ -15,7 +15,7 @@ export function configProblems(env: Record<string, string | undefined>) {
         problems.push("HUB_SECRET isn't set, so storytelling.json has no secret and the hub will refuse timer closes and reminders.");
 
     if (!env.HUB_URL?.trim())
-        problems.push("HUB_URL isn't set, so timer closes and reminders are only logged here, not sent to the chat.");
+        problems.push("HUB_URL isn't set, so timer closes and reminders are only logged here, not sent to the chat, and story add can't download attachments.");
 
     return problems;
 }

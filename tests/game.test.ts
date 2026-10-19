@@ -235,3 +235,151 @@ describe("Game voting", () => {
         expect(game.session(ROOM)?.status).toBe("ended");
     });
 });
+
+describe("Game adding stories", () => {
+    const OTHER = "!other:hub.example";
+    const LANTERN = `# title: The Lantern
+-> one
+=== one ===
+A light in the window.
+* [Knock] -> two
+* [Wait] -> two
+=== two ===
+The door opens.
+* [Enter] -> three
+* [Run] -> three
+=== three ===
+A voice calls.
+* [Answer] -> done
+* [Hide] -> done
+=== done ===
+# ending: Home
+The end.
+-> END
+`;
+
+    let files: Record<string, string>;
+    let downloads: string[];
+
+    beforeEach(() => {
+        files = { "mxc://matrix.example/lantern": LANTERN, "https://raw.githubusercontent.com/priya/s/main/lantern.ink": LANTERN };
+        downloads = [];
+        const fetchFrom = async (key: string) => {
+            downloads.push(key);
+            if (!(key in files)) throw new Error("HTTP 404");
+            return files[key];
+        };
+        game = new Game(stories, {
+            post: () => {},
+            random: () => 0,
+            loader: { attachment: fetchFrom, url: fetchFrom },
+        });
+    });
+
+    const fileContent = (name: string, mxc = "mxc://matrix.example/lantern", caption?: string) =>
+        ({ msgtype: "m.file", body: caption ?? name, ...(caption ? { filename: name } : {}), url: mxc, info: { mimetype: "application/octet-stream" } });
+
+    async function send(event: ChatEvent) {
+        return game.handle(event, BOT);
+    }
+
+    // Sends the file with "story add" as its caption
+    function attach(name: string, mxc?: string, room = ROOM) {
+        return send({ type: "m.room.message", event_id: `$f${++nextId}`, sender: "@priya", room_id: room, content: fileContent(name, mxc, "story add") });
+    }
+
+    // Replies "story add" to a file someone sent, as the hub attaches it
+    function replyAdd(name: string, body = "story add") {
+        const prevEvent: ChatEvent = { type: "m.room.message", event_id: `$f${++nextId}`, sender: "@sam", room_id: ROOM, content: fileContent(name) };
+        return send({
+            type: "m.room.message", event_id: `$m${++nextId}`, sender: "@priya", room_id: ROOM,
+            content: { msgtype: "m.text", body, "m.relates_to": { "m.in_reply_to": { event_id: prevEvent.event_id } } },
+            prevEvent,
+        });
+    }
+
+    it("adds a story sent with story add as its caption", async () => {
+        const { message } = only(await attach("Lantern.ink"));
+
+        expect(message).toBe("Added \"The Lantern\" (3 decisions, 1 ending). Start it with: story start lantern");
+        expect(downloads).toEqual(["mxc://matrix.example/lantern"]);
+    });
+
+    it("adds a story from the file a story add replies to, quoted reply or not", async () => {
+        expect(only(await replyAdd("lantern.ink")).message).toContain("Added \"The Lantern\"");
+        expect(only(await replyAdd("lantern.ink", "> <@sam> lantern.ink\n\nstory add")).message).toContain("Replaced \"The Lantern\"");
+    });
+
+    it("plays an added story, in that group only", async () => {
+        await attach("lantern.ink");
+
+        expect(only(say("@priya", "story list")).message).toContain("lantern: The Lantern (3 decisions, 1 ending)");
+        expect(only(say("@priya", "story list", OTHER)).message).not.toContain("lantern");
+        expect(only(say("@priya", "story start lantern", OTHER)).message).toContain("There's no story called \"lantern\"");
+
+        expect(only(say("@priya", "story start lantern")).message).toContain("A light in the window.");
+        expect(game.session(ROOM)?.storyId).toBe("lantern");
+    });
+
+    it("explains how to add when there's no file", async () => {
+        expect(only(await send({ type: "m.room.message", event_id: "$x", sender: "@priya", room_id: ROOM, content: { msgtype: "m.text", body: "story add" } })).message)
+            .toContain("Reply to a .ink file with \"story add\"");
+        expect(downloads).toEqual([]);
+    });
+
+    it("only takes .ink and compiled .json files, before downloading anything", async () => {
+        expect(only(await replyAdd("notes.pdf")).message).toContain("Only .ink files");
+        expect(downloads).toEqual([]);
+    });
+
+    it("lists a broken story's problems with line numbers and doesn't add it", async () => {
+        files["mxc://matrix.example/broken"] = "# title: Broken\nHello\n* [One] -> nowhere\n* [Two] -> END\n";
+        const { message } = only(await attach("broken.ink", "mxc://matrix.example/broken"));
+
+        expect(message).toMatch(/^"broken.ink" wasn't added:/);
+        expect(message).toContain("• line 3: Divert target not found: '-> nowhere'");
+        expect(only(say("@priya", "story list")).message).not.toContain("broken");
+    });
+
+    it("won't take a bundled story's name, or replace a story that's being played", async () => {
+        expect(only(await attach("the-stray.ink")).message).toContain("already a story called \"the-stray\"");
+
+        await attach("lantern.ink");
+        say("@priya", "story start lantern");
+        expect(only(await attach("lantern.ink")).message).toContain("\"story end\"");
+        expect(downloads).toEqual(["mxc://matrix.example/lantern"]);
+    });
+
+    it("says when the file can't be downloaded", async () => {
+        expect(only(await attach("lantern.ink", "mxc://matrix.example/gone")).message).toBe("Couldn't get \"lantern.ink\": HTTP 404");
+    });
+
+    it("keeps at most 10 added stories per group", async () => {
+        for (let i = 1; i <= 10; i++)
+            expect(only(await attach(`tale-${i}.ink`)).message).toContain("Added");
+
+        expect(only(await attach("tale-11.ink")).message).toContain("10 stories");
+        expect(only(await attach("tale-3.ink")).message).toContain("Replaced");
+    });
+
+    it("loads a story from a raw link", async () => {
+        const { message } = only(await send({ type: "m.room.message", event_id: "$l", sender: "@priya", room_id: ROOM, content: { msgtype: "m.text", body: "story load https://raw.githubusercontent.com/priya/s/main/lantern.ink" } }));
+
+        expect(message).toBe("Added \"The Lantern\" (3 decisions, 1 ending). Start it with: story start lantern");
+        expect(downloads).toEqual(["https://raw.githubusercontent.com/priya/s/main/lantern.ink"]);
+    });
+
+    it("refuses a link from another site without fetching it", async () => {
+        const { message } = only(await send({ type: "m.room.message", event_id: "$l", sender: "@priya", room_id: ROOM, content: { msgtype: "m.text", body: "story load https://example.com/lantern.ink" } }));
+
+        expect(message).toContain("raw.githubusercontent.com");
+        expect(downloads).toEqual([]);
+    });
+
+    it("lists added stories for the dashboard by room", async () => {
+        await attach("lantern.ink");
+
+        expect(game.library(ROOM).map(story => [story.id, story.addedHere])).toEqual([["the-stray", false], ["lantern", true]]);
+        expect(game.library(OTHER).map(story => story.id)).toEqual(["the-stray"]);
+    });
+});

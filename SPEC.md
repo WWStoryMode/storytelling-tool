@@ -274,7 +274,7 @@ The `introduction` is most of the user experience, so it names the three things 
 | --- | --- |
 | `POST /` | Receives chat events from the Tool Hub and returns messages to post |
 | `GET /` | Serves the dashboard, built into one `index.html` with Vite single-file |
-| `GET /api/stories` | Lists stories in the library |
+| `GET /api/stories[?roomId=…]` | Lists stories in the library; with `roomId`, that room's added stories follow, marked `addedHere` |
 | `POST /api/stories` | Uploads and validates an `.ink` or `.json` story |
 | `GET /api/sessions?roomId=…` | `{ now, session }`: the room's session for the dashboard (counts only, never names) and the server's clock |
 
@@ -285,9 +285,10 @@ The `introduction` is most of the user experience, so it names the three things 
 | `story start [name] [live or slow] [quorum N] [minutes N] [remind]` | Starts a session; defaults to the first story, Live, quorum 3. `minutes N` (1 to 1440) replaces the mode's vote window. `remind` reposts the beat with its vote counts 60, 30, 20 and 10 minutes before each vote closes, even with no votes; `remind 30 10` sets other times. Reminders that would come before a beat opens are skipped, and none are sent while paused |
 | `story status` | Reposts the current beat and its vote count |
 | `story end` | Ends the session with a recap of the path so far |
-| `story list` | Lists the stories in the library |
+| `story list` | Lists the stories in the library, then the ones this group added |
 | `story help` | Lists these commands |
-| `story load <url>` | Fetches a raw .ink file, compiles and checks it, and adds it to this room's library; loading the same URL again replaces it |
+| `story add` | Sent as a reply to an attached `.ink` or compiled `.json` file, or as the file's caption: downloads it through the hub, compiles and checks it, and adds it to this room's library; a file with the same name replaces it |
+| `story load <url>` | Fetches a raw .ink file, compiles and checks it, and adds it to this room's library; a story with the same name replaces it |
 
 ### Loading a story from a URL
 
@@ -307,19 +308,22 @@ const json = new Compiler(source).Compile().ToJson();
 
 **Where stories can live.** Any HTTPS link that returns the raw text works: a GitHub Gist, the "Raw" link of a file in a GitHub repo, or Pastebin's raw view. Google Docs and Drive share links do not work, because they return a web page. Stories must be a single file, since Ink's `INCLUDE` lines cannot be resolved from a URL.
 
-**Reloading is the playtest loop.** Running `story load` on the same URL replaces the story, keyed by URL. A writer edits the gist, reloads, and replays it in the test group within seconds.
+**Reloading is the playtest loop.** Running `story load` again replaces the story, keyed by its name (the file name, lower case, spaces as dashes), so `story add` and `story load` replace each other's copies. A writer edits the gist, reloads, and replays it in the test group within seconds.
 
 **Fetch limits.** The tool runs on a laptop behind ngrok, so an open fetch could be pointed at `localhost` or the home network. For the hack day, the fetch is locked down:
 
 | Limit | Value |
 | --- | --- |
 | Protocol | HTTPS only |
-| Allowed hosts | gist.githubusercontent.com, raw.githubusercontent.com, pastebin.com |
-| File size | 200 KB maximum |
-| Timeout | 5 seconds |
-| Content type | Plain text only |
+| Allowed hosts | gist.githubusercontent.com, raw.githubusercontent.com, pastebin.com (raw view only); a github.com file page or pastebin.com page link is turned into its raw link |
+| Redirects | Refused, so an allowed host can't send the request elsewhere |
+| File size | 200 KB maximum, enforced while reading even when the server doesn't declare a size |
+| Timeout | 10 seconds |
+| Content type | Not checked; the file must compile as Ink, or parse as compiled Ink JSON |
 
-**Library scope.** A story loaded by URL belongs to the room that loaded it, so a campaign's private scenario never appears in other groups' `story list`. Stories bundled with the tool or uploaded on the dashboard are shared with every group.
+**Attachments.** `story add` downloads the file through the hub's `GET /api/content?mxcUrl=…`, which uses the hub's own Matrix login (NOTES §8), with the same size limit and timeout. Only `.ink` and `.json` file names are accepted, checked before downloading.
+
+**Library scope.** A story added or loaded in a chat belongs to the room that added it, so a campaign's private scenario never appears in other groups' `story list`. It can't take a bundled story's name or replace a story the room is playing, and a room keeps at most 10. Added stories live in memory until the server restarts. Stories bundled with the tool or uploaded on the dashboard are shared with every group.
 
 ### State model
 

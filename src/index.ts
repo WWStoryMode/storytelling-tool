@@ -3,6 +3,7 @@ import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { createApp } from "./app";
 import { configProblems } from "./config";
+import { createStoryLoader } from "./download";
 import { Game, type Post } from "./game";
 import { createHubPoster } from "./hub";
 import { loadStoryDir } from "./library";
@@ -55,7 +56,10 @@ function timerPoster(): Post {
   return (roomId, messages) => console.log(`Timer message for ${roomId} (not sent: set HUB_URL and HUB_SECRET):`, messages);
 }
 
-const game = new Game(loadStories(), { post: timerPoster() });
+// story add downloads attachments through the hub; story load fetches raw links directly
+const loader = createStoryLoader({ hubUrl: process.env.HUB_URL?.trim() || null });
+
+const game = new Game(loadStories(), { post: timerPoster(), loader });
 
 // Set EVENT_LOG=events.jsonl to record story commands, reactions and redactions for `npm run replay`
 const eventLog = process.env.EVENT_LOG?.trim() || null;

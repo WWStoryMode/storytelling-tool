@@ -8,6 +8,8 @@ export type Command =
     | { type: "end" }
     | { type: "list" }
     | { type: "help" }
+    | { type: "add" }
+    | { type: "load"; url: string }
     | { type: "invalid"; message: string };
 
 const QUORUM_HINT = "Quorum needs a whole number of at least 1, like \"quorum 4\".";
@@ -73,9 +75,14 @@ function parseStart(words: string[]): Command {
     return { type: "start", storyId, mode, quorum, minutes, reminders };
 }
 
+const LOAD_HINT = "Paste the story's raw link after it, like: story load https://raw.githubusercontent.com/you/stories/main/lantern.ink";
+
 // Returns null for anything that isn't a story command
 export function parseCommand(body: string): Command | null {
-    const words = body.trim().toLowerCase().split(/\s+/);
+    // Some bridges send a reply with the quoted message first, as "> " lines
+    const text = body.replace(/^(>.*\n)+\n?/, "");
+    const original = text.trim().split(/\s+/);
+    const words = original.map(word => word.toLowerCase());
     if (words[0] !== "story") return null;
 
     const [command, ...rest] = words.slice(1);
@@ -89,6 +96,11 @@ export function parseCommand(body: string): Command | null {
         case "end":
         case "list":
             return { type: command };
+        case "add":
+            return { type: "add" };
+        case "load":
+            // Links are case-sensitive, so this one comes from the message as sent
+            return original[2] ? { type: "load", url: original[2] } : { type: "invalid", message: LOAD_HINT };
         default:
             return { type: "invalid", message: `I don't know "story ${command}". Send "story help" for the commands.` };
     }

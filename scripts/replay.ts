@@ -44,22 +44,28 @@ const clock = new VirtualClock(entries[0].receivedAt);
 const { stories } = loadStoryDir(path.resolve(__dirname, "../stories"));
 const game = new Game(stories, { clock, newId: recordedSessionId, post: (_roomId, messages) => print("Storytelling (timer)", messages) });
 
-for (const [index, { receivedAt, botUserId, event }] of entries.entries()) {
-    current = index;
-    // Timers that were due between recorded events fire first, as they did live
-    clock.advance(Math.max(0, receivedAt - clock.now()));
+async function main() {
+    for (const [index, { receivedAt, botUserId, event }] of entries.entries()) {
+        current = index;
+        // Timers that were due between recorded events fire first, as they did live
+        clock.advance(Math.max(0, receivedAt - clock.now()));
 
-    const key = event.content?.["m.relates_to"]?.key;
-    const what = event.type === "m.room.message" ? JSON.stringify(event.content?.body) : event.type === "m.reaction" ? `reacted ${key} (${[...String(key)].map(char => `U+${char.codePointAt(0)!.toString(16).toUpperCase()}`).join(" ")})` : event.type;
-    console.log(`\n${new Date(receivedAt).toISOString()} ${event.sender} ${what}`);
+        const key = event.content?.["m.relates_to"]?.key;
+        const what = event.type === "m.room.message" ? JSON.stringify(event.content?.body) : event.type === "m.reaction" ? `reacted ${key} (${[...String(key)].map(char => `U+${char.codePointAt(0)!.toString(16).toUpperCase()}`).join(" ")})` : event.type;
+        console.log(`\n${new Date(receivedAt).toISOString()} ${event.sender} ${what}`);
 
-    const replies = game.handle(event, botUserId);
-    if (replies.length === 0) {
-        const session = game.session(event.room_id);
-        const counted = event.type !== "m.room.message" && session?.status === "voting";
-        console.log(counted ? `  (no reply; votes per choice now ${JSON.stringify(tally(session))})` : "  (no reply)");
+        // The replay downloads nothing: the recording keeps no file links, and story load has no loader here,
+        // so a story added live can't be started in the replay
+        const replies = await game.handle(event, botUserId);
+        if (replies.length === 0) {
+            const session = game.session(event.room_id);
+            const counted = event.type !== "m.room.message" && session?.status === "voting";
+            console.log(counted ? `  (no reply; votes per choice now ${JSON.stringify(tally(session))})` : "  (no reply)");
+        }
+        print("Storytelling", replies);
     }
-    print("Storytelling", replies);
+
+    console.log("\n(end of recording)");
 }
 
-console.log("\n(end of recording)");
+main();

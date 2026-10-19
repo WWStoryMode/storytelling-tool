@@ -18,7 +18,8 @@ let base: string;
 let nextId = 0;
 
 async function listen(options: { dashboardHtml?: string; eventLog?: string | null } = {}) {
-    const game = new Game(stories, { post: () => {}, random: () => 0 });
+    const stray = fs.readFileSync(path.resolve(__dirname, "../stories/the-stray.ink"), "utf8");
+    const game = new Game(stories, { post: () => {}, random: () => 0, loader: { attachment: async () => stray, url: async () => stray } });
     const app = createApp({ game, dashboardHtml: options.dashboardHtml ?? "/no/such/index.html", eventLog: options.eventLog ?? null });
     server = await new Promise<Server>(resolve => { const s = app.listen(0, () => resolve(s)); });
     const address = server.address();
@@ -86,6 +87,17 @@ describe("GET /api/stories", () => {
         expect(list[0]).toMatchObject({ id: "the-stray", title: "The Stray", decisions: 3 });
         expect(list[0].endings).toHaveLength(3);
         expect(list[0]).not.toHaveProperty("json");
+    });
+
+    it("includes the stories a group added, for that group only", async () => {
+        const added = await send({ type: "m.room.message", event_id: "$f", sender: "@priya", room_id: ROOM, content: { msgtype: "m.file", body: "story add", filename: "copy.ink", url: "mxc://m/copy" } });
+        expect(added.response.message).toContain("story start copy");
+
+        const here = await (await fetch(`${base}/api/stories?roomId=${encodeURIComponent(ROOM)}`)).json();
+        const shared = await (await fetch(`${base}/api/stories`)).json();
+
+        expect(here.map((story: { id: string; addedHere: boolean }) => [story.id, story.addedHere])).toEqual([["the-stray", false], ["copy", true]]);
+        expect(shared.map((story: { id: string }) => story.id)).toEqual(["the-stray"]);
     });
 });
 

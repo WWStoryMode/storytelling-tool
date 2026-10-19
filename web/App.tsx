@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { type SessionView } from "../src/voting";
 import { apiUrl, countdown, leading, progress, shares } from "./view";
 
-type Story = { id: string; title: string; decisions: number; paths: number; endings: string[] };
+type Story = { id: string; title: string; decisions: number; paths: number; endings: string[]; addedHere: boolean };
 
 // SPEC: poll every two seconds, which is simpler than websockets and fast enough for a projector
 const POLL_MS = 2000;
@@ -65,14 +65,14 @@ export default function App() {
 
         {!roomId && <>
             <p className="lead">Open this dashboard from the hub's dashboard, which picks the group for you.</p>
-            <Library />
+            <Library roomId={null} />
         </>}
 
         {roomId && state && (state.session
             ? <Live session={state.session} offset={state.offset} />
             : <>
                 <p className="lead">No story is running in this group. Send <code>story start</code> in the chat to play one.</p>
-                <Library />
+                <Library roomId={roomId} />
             </>)}
     </main>;
 }
@@ -151,12 +151,13 @@ function Path({ path, ended }: { path: string[]; ended: boolean }) {
     </section>;
 }
 
-function Library() {
+// The shared stories, plus the ones this group added with story add or story load
+function Library({ roomId }: { roomId: string | null }) {
     const [stories, setStories] = useState<Story[] | null>(null);
 
     useEffect(() => {
-        getJson<Story[]>("/api/stories").then(setStories).catch(() => setStories([]));
-    }, []);
+        getJson<Story[]>("/api/stories", roomId ? { roomId } : undefined).then(setStories).catch(() => setStories([]));
+    }, [roomId]);
 
     if (!stories) return null;
 
@@ -167,7 +168,7 @@ function Library() {
             : <ul className="library">
                 {stories.map(story => <li key={story.id}>
                     <strong>{story.title}</strong>
-                    <span>{story.decisions} decisions · {story.endings.length} endings</span>
+                    <span>{story.decisions} decisions · {story.endings.length} endings{story.addedHere ? " · added in this group" : ""}</span>
                     <code>story start {story.id}</code>
                 </li>)}
             </ul>}

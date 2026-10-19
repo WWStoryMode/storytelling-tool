@@ -31,7 +31,7 @@ export function createApp(options: { game: Game; dashboardHtml: string; eventLog
       if (eventLog && logged)
         appendEvent(eventLog, { receivedAt: Date.now(), botUserId, event: logged });
 
-      const messages = game.handle(event, botUserId);
+      const messages = await game.handle(event, botUserId);
       // Logs the event type only: chat content and senders stay out of the logs
       console.log(`${event.type} in ${event.room_id}: ${messages.length} message(s)`);
 
@@ -45,8 +45,10 @@ export function createApp(options: { game: Game; dashboardHtml: string; eventLog
     }
   });
 
+  // With roomId, the stories that group added come after the shared ones
   app.get("/api/stories", async (req, res) => {
-    res.send(game.stories.map(({ json, ...story }) => story));
+    const { roomId } = req.query;
+    res.send(game.library(typeof roomId === "string" ? roomId : null).map(({ json, ...story }) => story));
   })
 
   // The dashboard is opened per room through the hub, as /storytelling?roomId=…

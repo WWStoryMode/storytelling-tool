@@ -84,3 +84,19 @@ Final text.
    ```
 
 Use Node 20 (`nvm use`) and run `npm install` once first.
+
+## Adding a story from the chat
+
+You can also add a story straight from the group, without the repo. It's checked against the same rules, and the reply names any problems with their line numbers.
+
+- **Send the file.** Attach the `.ink` file (or compiled `.json` from Inky) as a document, then reply to it with `story add`. Sending it with `story add` as its caption works too.
+- **Paste a link.** Put the story somewhere that serves its raw text, then send `story load <link>`. Links can be from `raw.githubusercontent.com`, `gist.githubusercontent.com` or `pastebin.com`. A GitHub file page or a paste's page link is turned into its raw link for you. The file must be public.
+
+The reply says the name to start it with: the file name in lower case, with spaces as dashes (`The Lantern.ink` → `story start the-lantern`). Adding a file with the same name again replaces it, which makes editing and replaying quick. A story added this way:
+
+- belongs to that group only, and other groups don't see it in `story list`
+- can't use the name of a story in this folder
+- can't be replaced while the group is playing it
+- is kept until the server restarts. To keep a story for good, save it in this folder.
+
+Each group can add up to 10 stories, of up to 200 KB each. Ink's `INCLUDE` doesn't work here, so a story must be a single file.

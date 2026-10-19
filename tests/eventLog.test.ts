@@ -34,6 +34,20 @@ describe("forLog", () => {
         expect(logged?.prevEvent?.content).toEqual({});
         expect(JSON.stringify(logged)).not.toContain("phone number");
     });
+
+    it("blanks the text of a member's message that a command replies to, keeping a file's name", () => {
+        const reply = (prevEvent: ChatEvent): ChatEvent =>
+            ({ ...message("story add"), content: { body: "story add", "m.relates_to": { "m.in_reply_to": { event_id: prevEvent.event_id } } }, prevEvent });
+        const file: ChatEvent = { ...message("lantern.ink", "@sam:hub"), content: { msgtype: "m.file", body: "lantern.ink", url: "mxc://m/abc", info: { mimetype: "text/plain", size: 900 } } };
+
+        expect(forLog(reply(message("my address is…", "@sam:hub")), BOT)?.prevEvent?.content).toEqual({});
+        expect(forLog(reply(file), BOT)?.prevEvent?.content).toEqual({ msgtype: "m.file", body: "lantern.ink", info: { mimetype: "text/plain", size: 900 } });
+    });
+
+    it("keeps a file sent with a story command as its caption, without its link", () => {
+        const file: ChatEvent = { ...message("story add"), content: { msgtype: "m.file", body: "story add", filename: "lantern.ink", url: "mxc://m/abc" } };
+        expect(forLog(file, BOT)?.content).toEqual({ msgtype: "m.file", body: "story add", filename: "lantern.ink" });
+    });
 });
 
 describe("appendEvent and readEventLog", () => {

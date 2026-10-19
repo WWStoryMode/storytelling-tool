@@ -4,14 +4,17 @@
 //   sam: 2                   Sam reacts 2️⃣ to the latest story message (any emoji works: "sam: ❤️")
 //   sam: 2 #3                Sam reacts to bot message #3 instead
 //   sam: -                   Sam removes their latest reaction
+//   sam: /add my-story.ink   Sam sends a local file with "story add" as its caption
 //   /wait 3                  move the clock 3 minutes forward, firing any timers
 //   /skip                    jump to the next timer and fire it
 //   /state                   what the dashboard would see
 //
 // npm run sim -- --server [url] sends the events to a running server instead (default http://localhost:5049),
 // so its dashboard at /?roomId=!sim:local follows along. The server's real clock runs the timers there.
+import * as fs from "fs";
 import path from "path";
 import * as readline from "readline";
+import { createStoryLoader } from "../src/download";
 import { Game } from "../src/game";
 import { loadStoryDir } from "../src/library";
 import { sessionView, type ChatEvent, type ChatMessage } from "../src/voting";
@@ -45,7 +48,13 @@ function print(messages: ChatMessage[], via: string) {
 const { stories, rejected } = loadStoryDir(path.resolve(__dirname, "../stories"));
 rejected.forEach(({ file, problems }) => console.log(`Skipped stories/${file}: ${problems.join("; ")}`));
 
-const game = new Game(stories, { clock, post: (_roomId, messages) => print(messages, " (timer)") });
+// Attachments come from local files here; story load fetches real links
+const loader = {
+    attachment: async (mxcUrl: string) => fs.readFileSync(decodeURIComponent(mxcUrl.replace("mxc://sim/", "")), "utf8"),
+    url: createStoryLoader({ hubUrl: null }).url,
+};
+
+const game = new Game(stories, { clock, loader, post: (_roomId, messages) => print(messages, " (timer)") });
 
 // In-process, or through a running server's POST / as the hub would send it
 async function handle(event: ChatEvent): Promise<ChatMessage[]> {
@@ -126,6 +135,22 @@ async function run(line: string) {
 
     const sender = `@${match[1].trim().toLowerCase()}`;
     const text = match[2].trim();
+
+    const attachment = text.match(/^\/add\s+(.+)$/);
+    if (attachment) {
+        if (server) {
+            console.log("  (with --server, attachments go through the hub; use \"story load <raw link>\" instead)");
+            return;
+        }
+        const file = path.resolve(attachment[1]);
+        if (!fs.existsSync(file)) {
+            console.log(`  (no file at ${file})`);
+            return;
+        }
+        const content = { msgtype: "m.file", body: "story add", filename: path.basename(file), url: `mxc://sim/${encodeURIComponent(file)}`, info: { size: fs.statSync(file).size } };
+        print(await handle(asEvent(sender, "m.room.message", content)), "");
+        return;
+    }
 
     // A lone number, emoji or "-" is a reaction; anything else is a chat message
     const reaction = text.match(/^(\S+)(?:\s+#(\d+))?$/);
