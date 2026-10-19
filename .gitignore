@@ -135,3 +135,4 @@ storytelling.json
 data/
 events.jsonl
 web/dist/
+.DS_Store
