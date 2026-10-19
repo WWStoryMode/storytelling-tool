@@ -56,6 +56,8 @@ describe("Game commands", () => {
 
     it("replies to story help with the commands and what the tool reads", () => {
         const { message } = only(say("@priya", "story help"));
+        expect(message).toContain("[minutes N]");
+        expect(message).toContain("[remind]");
         for (const command of ["story start", "story status", "story end", "story list", "story help"])
             expect(message).toContain(command);
         expect(message).toContain("never who");
@@ -82,6 +84,35 @@ describe("Game commands", () => {
         expect(beat.message.endsWith("React to vote. Closes at 4 votes or in 24 hours.")).toBe(true);
         expect(beat.context).toMatchObject({ tool: "storytelling" });
         expect(game.session(ROOM)).toMatchObject({ storyId: "the-stray", mode: "slow", quorum: 4, status: "voting" });
+    });
+
+    it("closes on a custom number of minutes", () => {
+        const beat = only(say("@priya", "story start minutes 5"));
+        expect(beat.message.endsWith("React to vote. Closes at 3 votes or in 5 minutes.")).toBe(true);
+
+        react("@priya", "1️⃣", beat);
+        vi.advanceTimersByTime(5 * 60_000 - 1);
+        expect(posted).toEqual([]);
+        vi.advanceTimersByTime(1);
+        expect(posted).toHaveLength(1);
+    });
+
+    it("posts reminders through the post function before the timer closes the vote", () => {
+        const beat = only(say("@priya", "story start minutes 30 remind 20 10"));
+        expect(beat.message.endsWith("React to vote. Closes at 3 votes or in 30 minutes.")).toBe(true);
+
+        vi.advanceTimersByTime(10 * 60_000);
+        expect(posted).toHaveLength(1);
+        expect(only(posted[0].messages).message.startsWith("Reminder: 0 votes so far, 20 minutes left.")).toBe(true);
+
+        react("@sam", "2️⃣", only(posted[0].messages));
+        vi.advanceTimersByTime(10 * 60_000);
+        expect(only(posted[1].messages).message.startsWith("Reminder: 1 vote so far, 10 minutes left.")).toBe(true);
+
+        vi.advanceTimersByTime(10 * 60_000 - 1);
+        expect(posted).toHaveLength(2);
+        vi.advanceTimersByTime(1);
+        expect(only(posted[2].messages).message.startsWith("The group chose 2️⃣")).toBe(true);
     });
 
     it("refuses a second story while one is running, and allows one after it ends", () => {

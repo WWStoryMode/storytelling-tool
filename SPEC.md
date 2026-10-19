@@ -282,7 +282,7 @@ The `introduction` is most of the user experience, so it names the three things 
 
 | Message | Effect |
 | --- | --- |
-| `story start [name] [live or slow] [quorum N]` | Starts a session; defaults to the first story, Live, quorum 3 |
+| `story start [name] [live or slow] [quorum N] [minutes N] [remind]` | Starts a session; defaults to the first story, Live, quorum 3. `minutes N` (1 to 1440) replaces the mode's vote window. `remind` reposts the beat with its vote counts 60, 30, 20 and 10 minutes before each vote closes, even with no votes; `remind 30 10` sets other times. Reminders that would come before a beat opens are skipped, and none are sent while paused |
 | `story status` | Reposts the current beat and its vote count |
 | `story end` | Ends the session with a recap of the path so far |
 | `story list` | Lists the stories in the library |

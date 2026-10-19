@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as fs from "fs";
 import path from "path";
 import { compileInk } from "../src/validate";
-import { endSession, handleEvent, handleTimer, sessionView, startSession, statusMessage, tally, WINDOW_MS, type ChatEvent, type Session } from "../src/voting";
+import { endSession, handleEvent, handleTimer, nextDue, sessionView, startSession, statusMessage, tally, WINDOW_MS, type ChatEvent, type Session } from "../src/voting";
 
 const json = compileInk(fs.readFileSync(path.resolve(__dirname, "../stories/the-stray.ink"), "utf8")).json as string;
 
@@ -14,7 +14,7 @@ const SLOW = WINDOW_MS.slow;
 
 const env = (now = T0, random = () => 0) => ({ now, random, storyJson: json });
 
-function begin(options: { quorum?: number; mode?: "live" | "slow" } = {}) {
+function begin(options: { quorum?: number; mode?: "live" | "slow"; windowMs?: number; reminders?: number[] } = {}) {
     return startSession({ id: "s1", roomId: ROOM, storyId: "the-stray", storyJson: json, now: T0, ...options });
 }
 
@@ -106,6 +106,20 @@ describe("startSession", () => {
         expect(session.mode).toBe("live");
         expect(session.quorum).toBe(3);
         expect(messages[0].message.endsWith("React to vote. Closes at 3 votes or in 3 minutes.")).toBe(true);
+    });
+
+    it("uses a custom window in place of the mode's", () => {
+        const { session, messages } = begin({ windowMs: 10 * 60_000 });
+
+        expect(session.windowMs).toBe(10 * 60_000);
+        expect(session.closesAt).toBe(T0 + 10 * 60_000);
+        expect(messages[0].message.endsWith("React to vote. Closes at 3 votes or in 10 minutes.")).toBe(true);
+        expect(begin({ mode: "slow", windowMs: 60 * 60_000 }).session.closesAt).toBe(T0 + 60 * 60_000);
+    });
+
+    it("rejects a window that is not a positive whole number of milliseconds", () => {
+        expect(() => begin({ windowMs: 0 })).toThrow(RangeError);
+        expect(() => begin({ windowMs: -60_000 })).toThrow(RangeError);
     });
 
     it("rejects a quorum that is not a positive whole number", () => {
@@ -438,5 +452,118 @@ describe("sessionView", () => {
         });
         expect(JSON.stringify(view)).not.toMatch(/priya|sam/);
         expect(view).not.toHaveProperty("inkState");
+    });
+});
+
+describe("a custom window", () => {
+    const FIVE = 5 * 60_000;
+
+    it("times every beat, the pause and the status repost", () => {
+        const { session } = begin({ windowMs: FIVE });
+
+        unchanged(handleTimer(session, env(T0 + FIVE - 1)), session);
+        const paused = handleTimer(session, env(T0 + FIVE));
+        expect(paused.messages[0].message.endsWith("the vote reopens for 5 minutes.")).toBe(true);
+        expect(statusMessage(paused.session, T0 + FIVE).message.endsWith("Closes at 3 votes or in 5 minutes.")).toBe(true);
+
+        const reopened = vote(paused.session, "@priya", "1️⃣", { now: T0 + 2 * FIVE });
+        expect(reopened.session.closesAt).toBe(T0 + 3 * FIVE);
+
+        const closed = handleTimer(reopened.session, env(T0 + 3 * FIVE));
+        expect(closed.session.closesAt).toBe(T0 + 4 * FIVE);
+        expect(closed.messages[0].message.endsWith("Closes at 3 votes or in 5 minutes.")).toBe(true);
+    });
+});
+
+describe("reminders", () => {
+    const MINUTE = 60_000;
+    const close = T0 + SLOW;
+
+    it("reposts the beat at each reminder time before the close, even with no votes", () => {
+        const { session } = begin({ mode: "slow", reminders: [10, 60, 30, 20] });
+        expect(session.reminders).toEqual([60, 30, 20, 10]);
+        expect(session.remindAt).toBe(close - 60 * MINUTE);
+        expect(nextDue(session)).toBe(close - 60 * MINUTE);
+
+        unchanged(handleTimer(session, env(close - 60 * MINUTE - 1)), session);
+
+        const first = handleTimer(session, env(close - 60 * MINUTE));
+        expect(first.messages).toHaveLength(1);
+        const { message, context } = first.messages[0];
+        expect(message.startsWith("Reminder: 0 votes so far, 1 hour left.\nRain hits the city")).toBe(true);
+        expect(message).toContain("1️⃣ Under the bakery's back awning (0)");
+        expect(message.endsWith("React to vote. Closes in 1 hour.")).toBe(true);
+        expect(context).toEqual({ tool: "storytelling", beatId: "s1:1" });
+        expect(first.session.status).toBe("voting");
+        expect(first.session.closesAt).toBe(close);
+
+        let current = vote(first.session, "@priya", "2️⃣", { now: close - 45 * MINUTE }).session;
+        const sent = [first.messages[0].message];
+        for (const minutes of [30, 20, 10]) {
+            expect(current.remindAt).toBe(close - minutes * MINUTE);
+            const result = handleTimer(current, env(close - minutes * MINUTE));
+            sent.push(result.messages[0].message);
+            current = result.session;
+        }
+        expect(sent.slice(1).map(message => message.split("\n")[0])).toEqual([
+            "Reminder: 1 vote so far, 30 minutes left.",
+            "Reminder: 1 vote so far, 20 minutes left.",
+            "Reminder: 1 vote so far, 10 minutes left.",
+        ]);
+
+        expect(current.remindAt).toBeNull();
+        expect(nextDue(current)).toBe(close);
+        const closed = handleTimer(current, env(close));
+        expect(closed.messages[0].message.startsWith("The group chose 2️⃣")).toBe(true);
+    });
+
+    it("sets up the reminders again for every new beat", () => {
+        const { session } = begin({ windowMs: 30 * MINUTE, reminders: [10] });
+        const next = voteAll(session, [["@a", "1️⃣"], ["@b", "1️⃣"], ["@c", "1️⃣"]], { now: T0 + 5 * MINUTE }).session;
+
+        expect(next.beatId).toBe("s1:2");
+        expect(next.remindAt).toBe(T0 + 25 * MINUTE);
+    });
+
+    it("skips reminders that would come before the beat opens", () => {
+        const { session } = begin({ reminders: [60, 30, 2] });
+        expect(session.remindAt).toBe(T0 + LIVE - 2 * MINUTE);
+
+        const live = begin({ reminders: [60, 30] }).session;
+        expect(live.remindAt).toBeNull();
+        expect(nextDue(live)).toBe(T0 + LIVE);
+    });
+
+    it("sends one reminder when the timer wakes after several were due", () => {
+        const { session } = begin({ mode: "slow", reminders: [60, 30, 10] });
+        const late = handleTimer(session, env(close - 25 * MINUTE));
+
+        expect(late.messages).toHaveLength(1);
+        expect(late.messages[0].message.startsWith("Reminder: 0 votes so far, 25 minutes left.")).toBe(true);
+        expect(late.session.remindAt).toBe(close - 10 * MINUTE);
+    });
+
+    it("sends no reminders while paused, and starts them again when a vote reopens the window", () => {
+        const { session } = begin({ windowMs: 30 * MINUTE, reminders: [10] });
+        const atReminder = handleTimer(session, env(T0 + 20 * MINUTE)).session;
+        const paused = handleTimer(atReminder, env(T0 + 30 * MINUTE)).session;
+
+        expect(paused.status).toBe("paused");
+        expect(paused.remindAt).toBeNull();
+        expect(nextDue(paused)).toBeNull();
+
+        const reopened = vote(paused, "@priya", "1️⃣", { now: T0 + 100 * MINUTE }).session;
+        expect(reopened.remindAt).toBe(T0 + 120 * MINUTE);
+    });
+
+    it("has no reminders unless they are asked for", () => {
+        const { session } = begin({ mode: "slow" });
+        expect(session.reminders).toEqual([]);
+        expect(session.remindAt).toBeNull();
+    });
+
+    it("rejects reminder minutes that are not positive whole numbers", () => {
+        expect(() => begin({ reminders: [0] })).toThrow(RangeError);
+        expect(() => begin({ reminders: [2.5] })).toThrow(RangeError);
     });
 });

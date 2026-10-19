@@ -48,6 +48,10 @@ export function formatResult(result: { choice: number; label: string; count: num
         : `The group chose ${pick}.`;
 }
 
+export function formatReminderLead(votesIn: number, leftMs: number) {
+    return `Reminder: ${plural(votesIn, "vote")} so far, ${formatDuration(leftMs)} left.`;
+}
+
 export function formatStatusLead(votesIn: number, paused: boolean) {
     return paused ? "The story is paused until someone votes." : `${plural(votesIn, "vote")} so far.`;
 }
@@ -96,7 +100,7 @@ export function formatEndedEarly(recap: Recap) {
 export function formatHelp() {
     return [
         "Storytelling commands:",
-        "• story start [name] [live or slow] [quorum N]: start a story. It's Live with a quorum of 3 unless you say otherwise",
+        "• story start [name] [live or slow] [quorum N] [minutes N] [remind]: start a story. It's Live, closing at 3 votes or 3 minutes, unless you say otherwise. \"remind\" reposts each choice 60, 30, 20 and 10 minutes before it closes, or give your own, like \"remind 30 10\"",
         "• story status: show the current choice and the votes so far",
         "• story end: stop the story and show the path so far",
         "• story list: list the stories you can play",

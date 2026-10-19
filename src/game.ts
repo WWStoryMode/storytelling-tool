@@ -6,6 +6,7 @@ import {
     endSession,
     handleEvent,
     handleTimer,
+    nextDue,
     startSession,
     statusMessage,
     type ChatEvent,
@@ -37,7 +38,7 @@ const reply = (message: string): ChatMessage[] => [{ message }];
 
 export class Game {
     private readonly sessions = new Map<string, Session>();
-    private readonly timers = new Map<string, unknown>();
+    private readonly timers = new Map<string, { handle: unknown; at: number }>();
     private readonly clock: Clock;
     private readonly random: () => number;
     private readonly newId: () => string;
@@ -126,6 +127,8 @@ export class Game {
                     now: this.clock.now(),
                     mode: command.mode ?? undefined,
                     quorum: command.quorum ?? undefined,
+                    windowMs: command.minutes === null ? undefined : command.minutes * 60_000,
+                    reminders: command.reminders ?? undefined,
                 });
                 this.sessions.set(roomId, session);
                 this.schedule(roomId);
@@ -148,25 +151,28 @@ export class Game {
     }
 
     private schedule(roomId: string) {
-        if (this.timers.has(roomId)) {
-            this.clock.clearTimeout(this.timers.get(roomId));
+        const timer = this.timers.get(roomId);
+        if (timer) {
+            this.clock.clearTimeout(timer.handle);
             this.timers.delete(roomId);
         }
 
         const session = this.sessions.get(roomId);
-        if (!session || session.status !== "voting" || session.closesAt === null) return;
+        const at = session ? nextDue(session) : null;
+        if (at === null) return;
 
-        const delay = Math.max(0, session.closesAt - this.clock.now());
-        this.timers.set(roomId, this.clock.setTimeout(() => this.fire(roomId), delay));
+        const handle = this.clock.setTimeout(() => this.fire(roomId, at), Math.max(0, at - this.clock.now()));
+        this.timers.set(roomId, { handle, at });
     }
 
-    private fire(roomId: string) {
+    // Sends a reminder or closes the vote, whichever was due at `at`
+    private fire(roomId: string, at: number) {
         this.timers.delete(roomId);
 
         const messages = this.update(roomId, session => handleTimer(session, {
             ...this.env(session),
-            // A timer can wake a moment early; the window has still ended
-            now: Math.max(this.clock.now(), session.closesAt ?? 0),
+            // A timer can wake a moment early; what it was set for is still due
+            now: Math.max(this.clock.now(), at),
         }));
 
         if (messages.length > 0)
