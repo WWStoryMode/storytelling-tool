@@ -8,7 +8,8 @@ import { Game } from "../src/game";
 import { loadStoryDir } from "../src/library";
 import { type ChatEvent, type ChatMessage } from "../src/voting";
 
-const { stories } = loadStoryDir(path.resolve(__dirname, "../stories"));
+// The Stray only, so stories that writers add to the folder don't change these tests
+const stories = loadStoryDir(path.resolve(__dirname, "../stories")).stories.filter(story => story.id === "the-stray");
 
 const BOT = "@storytelling:hub.example";
 const ROOM = "!group:hub.example";

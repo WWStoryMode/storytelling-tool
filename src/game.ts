@@ -33,6 +33,9 @@ export type Reply = ChatMessage[] | Promise<ChatMessage[]>;
 // Stories a group adds with `story add` or `story load` belong to that group, and live in memory only
 export const MAX_ADDED_STORIES = 10;
 
+// What a bare `story start` plays: the starter story, whatever else is in the library
+export const DEFAULT_STORY = "the-stray";
+
 const ADD_HINT = "Reply to a .ink file with \"story add\", or send the file with \"story add\" as its caption.";
 
 // A file message: the one sent with "story add" as its caption, or the one a "story add" replies to
@@ -167,7 +170,9 @@ export class Game {
                 if (this.running(roomId))
                     return reply("A story is already running here. Send \"story status\" to see the current choice, or \"story end\" to stop it.");
 
-                const story = command.storyId ? this.story(roomId, command.storyId) : this.stories[0];
+                const story = command.storyId
+                    ? this.story(roomId, command.storyId)
+                    : this.stories.find(story => story.id === DEFAULT_STORY) ?? this.stories[0];
                 if (!story)
                     return reply(command.storyId
                         ? `There's no story called "${command.storyId}". Send "story list" to see what you can play.`

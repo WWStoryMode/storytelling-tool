@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import path from "path";
 import { Game } from "../src/game";
-import { loadStoryDir } from "../src/library";
+import { buildStory, loadStoryDir } from "../src/library";
 import { WINDOW_MS, type ChatEvent, type ChatMessage } from "../src/voting";
 
-const { stories } = loadStoryDir(path.resolve(__dirname, "../stories"));
+// The Stray only, so stories that writers add to the folder don't change these tests
+const stories = loadStoryDir(path.resolve(__dirname, "../stories")).stories.filter(story => story.id === "the-stray");
 
 const BOT = "@storytelling:hub.example";
 const ROOM = "!group:hub.example";
@@ -75,6 +76,15 @@ describe("Game commands", () => {
         expect(only(say("@priya", "story start dragons")).message).toBe("There's no story called \"dragons\". Send \"story list\" to see what you can play.");
         expect(only(say("@priya", "story start quorum none")).message).toContain("quorum 4");
         expect(game.session(ROOM)).toBeNull();
+    });
+
+    it("starts The Stray when no story is named, even when another story sorts first", () => {
+        const first = buildStory("aardvark.ink", "# title: Aardvark\n-> a\n=== a ===\nOne.\n* [Left] -> b\n* [Right] -> b\n=== b ===\nTwo.\n* [Up] -> c\n* [Down] -> c\n=== c ===\nThree.\n* [In] -> d\n* [Out] -> d\n=== d ===\n# ending: Done\nThe end.\n-> END\n");
+        if (!first.ok) throw new Error("test story didn't build");
+        game = new Game([first.story, ...stories], { post: () => {}, random: () => 0 });
+
+        expect(only(say("@priya", "story start")).message).toContain("THE STRAY");
+        expect(only(say("@priya", "story start aardvark", "!other:hub.example")).message).toContain("AARDVARK");
     });
 
     it("starts the first story with the options given", () => {
