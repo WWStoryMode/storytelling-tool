@@ -177,6 +177,6 @@ export class Game {
 
         if (messages.length > 0)
             Promise.resolve(this.options.post(roomId, messages))
-                .catch(err => console.error(`Couldn't post the timer's messages to ${roomId}:`, err));
+                .catch(err => console.error(`Couldn't post the timer's message to ${roomId}. "story status" in the chat reposts the current choice.`, err));
     }
 }

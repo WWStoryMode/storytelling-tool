@@ -12,7 +12,8 @@ Use Node 20 (`nvm use`, see `.nvmrc`); the system Node 14 is too old.
 - `npm run dev-web` / `npm run build-web`: dashboard dev server / single-file build into `web/dist/index.html`, served on `GET /`
 - `npm run sim`: a pretend group chat in the terminal (`priya: story start`, `sam: 2`, `/wait 3`, `/skip`, `/state`), no hub needed
 - `npm run check-story -- <file>` / `npm run play-story -- <file>`: validate / play an Ink story in the terminal; the writer's guide is `stories/README.md`
-- Copy `.env.example` to `.env` for `PUBLIC_URL` (ngrok) and `HUB_SECRET`
+- `npm run replay -- events.jsonl`: plays a recording back through the game, showing each reaction's codepoints; record one by setting `EVENT_LOG=events.jsonl`
+- Copy `.env.example` to `.env` for `PUBLIC_URL` (ngrok), `HUB_SECRET` and `HUB_URL`; the server warns at startup about any that are missing
 
 ## Rules
 

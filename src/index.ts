@@ -2,7 +2,10 @@ import express from "express";
 import * as fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { Game } from "./game";
+import { configProblems } from "./config";
+import { forLog, appendEvent } from "./eventLog";
+import { Game, type Post } from "./game";
+import { createHubPoster } from "./hub";
 import { loadStoryDir } from "./library";
 import { sessionView } from "./voting";
 
@@ -43,10 +46,23 @@ function loadStories() {
   return stories;
 }
 
-// Timer closes have no incoming event to reply to. Phase 4 posts them through the hub's /api/send; until then they are logged.
-const game = new Game(loadStories(), {
-  post: (roomId, messages) => console.log(`Timer message for ${roomId} (not sent yet):`, messages),
-});
+configProblems(process.env).forEach(problem => console.warn(`Setup: ${problem}`));
+
+// Timer closes, pauses and reminders have no incoming event to reply to, so they go through the hub's /api/send
+function timerPoster(): Post {
+  const { HUB_URL, HUB_SECRET } = process.env;
+  if (HUB_URL && HUB_SECRET)
+    return createHubPoster({ hubUrl: HUB_URL, secret: HUB_SECRET });
+
+  return (roomId, messages) => console.log(`Timer message for ${roomId} (not sent: set HUB_URL and HUB_SECRET):`, messages);
+}
+
+const game = new Game(loadStories(), { post: timerPoster() });
+
+// Set EVENT_LOG=events.jsonl to record story commands, reactions and redactions for `npm run replay`
+const eventLog = process.env.EVENT_LOG?.trim() || null;
+if (eventLog)
+  console.log(`Recording story events to ${eventLog}`);
 
 let server;
 
@@ -69,6 +85,10 @@ async function start() {
     }
 
     try {
+      const logged = eventLog ? forLog(event, botUserId) : null;
+      if (eventLog && logged)
+        appendEvent(eventLog, { receivedAt: Date.now(), botUserId, event: logged });
+
       const messages = game.handle(event, botUserId);
       // Logs the event type only: chat content and senders stay out of the logs
       console.log(`${event.type} in ${event.room_id}: ${messages.length} message(s)`);
